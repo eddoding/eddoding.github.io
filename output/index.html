@@ -1,0 +1,1481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="description" content="My name is Eddo and I am interested in Bayesian statistics.">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Eddo's Data Diary</title>
+<link href="assets/css/all-nocdn.css" rel="stylesheet" type="text/css">
+<link href="assets/css/ipython.min.css" rel="stylesheet" type="text/css">
+<link href="assets/css/nikola_ipython.css" rel="stylesheet" type="text/css">
+<meta name="theme-color" content="#5670d4">
+<meta name="generator" content="Nikola (getnikola.com)">
+<link rel="alternate" type="application/rss+xml" title="RSS" hreflang="en" href="rss.xml">
+<link rel="canonical" href="https://eddoding.github.io/">
+<!--[if lt IE 9]><script src="assets/js/html5.js"></script><![endif]--><link rel="prefetch" href="posts/ab-testing-primer/" type="text/html">
+</head>
+<body>
+<a href="#content" class="sr-only sr-only-focusable">Skip to main content</a>
+
+<!-- Menubar -->
+
+<nav class="navbar navbar-inverse navbar-static-top"><div class="container">
+<!-- This keeps the margins nice -->
+        <div class="navbar-header">
+            <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#bs-navbar" aria-controls="bs-navbar" aria-expanded="false">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="https://eddoding.github.io/">
+
+                <span id="blog-title">Eddo's Data Diary</span>
+            </a>
+        </div>
+<!-- /.navbar-header -->
+        <div class="collapse navbar-collapse" id="bs-navbar" aria-expanded="false">
+            <ul class="nav navbar-nav">
+<li>
+<a href="archive.html">Archive</a>
+                </li>
+<li>
+<a href="categories/">Tags</a>
+                </li>
+<li>
+<a href="rss.xml">RSS feed</a>
+
+                
+            </li>
+</ul>
+<ul class="nav navbar-nav navbar-right"></ul>
+</div>
+<!-- /.navbar-collapse -->
+    </div>
+<!-- /.container -->
+</nav><!-- End of Menubar --><div class="container" id="content" role="main">
+    <div class="body-content">
+        <!--Body content-->
+        <div class="row">
+            
+            
+
+    
+
+
+    
+<div class="postindex">
+    <article class="h-entry post-text" itemscope="itemscope" itemtype="http://schema.org/Article"><header><h1 class="p-name entry-title"><a href="posts/ab-testing-primer/" class="u-url">A/B Testing Primer</a></h1>
+        <div class="metadata">
+            <p class="byline author vcard"><span class="byline-name fn" itemprop="author">
+                Eddo Putradipura
+            </span></p>
+            <p class="dateline">
+            <a href="posts/ab-testing-primer/" rel="bookmark">
+            <time class="published dt-published" datetime="2020-01-13T21:51:58+07:00" itemprop="datePublished" title="2020-01-13 21:51">2020-01-13 21:51</time></a>
+            </p>
+                <p class="commentline">
+        
+
+
+        </p>
+</div>
+    </header><div class="e-content entry-content">
+    <div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [1]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span><span class="o">,</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">scipy</span> <span class="kn">import</span> <span class="n">stats</span>
+<span class="o">%</span><span class="k">matplotlib</span> inline
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+<span class="kn">import</span> <span class="nn">seaborn</span> <span class="k">as</span> <span class="nn">sns</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Objective">Objective<a class="anchor-link" href="posts/ab-testing-primer/#Objective">¶</a>
+</h2>
+<p>We have an A/B test data from a mobile game <a href="https://www.facebook.com/cookiecatsgame">Cookie Cats</a>, where we are going to analyse players' retention rate with different treatment of prompt in-app purchases <strong>gates</strong>. As shown below, the <strong>gate</strong> will show up as players progresses through the levels of the game.</p>
+<p></p>
+<p><img src="https://s3.amazonaws.com/assets.datacamp.com/production/project_184/img/cc_gates.png" alt=""></p>
+In this experiment, the developer wants to know whether placing the gate at level 40 will boost more players' retention compared to the gate at level 30. Full description of the A/B test analysis can be found on <a href="https://www.datacamp.com/projects/184">Datacamp project page</a>.
+<p>However, I am going to assess the A/B test results via two competing school of thoughts in statistics; <strong>frequentist</strong> and <strong>Bayesian</strong> methods, besides the boostrap method explained on the Datacamp page.</p>
+<p>The result, however, shows that putting the gate at level 40 is <strong>ineffective and the retention is lower</strong> than the group where the gate shows up at level 30. We will confirm this through the other ways that we are going to perform.</p>
+<h3 id="1.-The-data">1. The data<a class="anchor-link" href="posts/ab-testing-primer/#1.-The-data">¶</a>
+</h3>
+<p>The players are randomly assigned into two groups: <code>gate_30</code> and <code>gate_40</code> under the column <code>version</code> on the dataset. The total players in this dataset is 90,189 with no duplicate <code>userid</code>. Also, we have other fields such as:</p>
+<ul>
+<li>
+<code>sum_gamerounds</code> (the number of game rounds played by the player during the first 14 days after install),
+</li>
+<li>
+<code>retention_1</code> - did the player come back and play <strong>1 day</strong> after installing?</li>
+<li>
+<code>retention_7</code> - did the player come back and play <strong>7 days</strong> after installing?</li>
+</ul>
+<p>A quick glance through the data gives us the following depiction,</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [2]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s2">"datasets/cookie_cats.csv"</span><span class="p">)</span>
+<span class="n">df</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+    <div class="prompt output_prompt">Out[2]:</div>
+
+
+
+<div class="output_html rendered_html output_subarea output_execute_result">
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+<thead><tr style="text-align: right;">
+<th></th>
+      <th>userid</th>
+      <th>version</th>
+      <th>sum_gamerounds</th>
+      <th>retention_1</th>
+      <th>retention_7</th>
+    </tr></thead>
+<tbody>
+<tr>
+<th>1651</th>
+      <td>178912</td>
+      <td>gate_30</td>
+      <td>1</td>
+      <td>False</td>
+      <td>False</td>
+    </tr>
+<tr>
+<th>72506</th>
+      <td>8033024</td>
+      <td>gate_40</td>
+      <td>5</td>
+      <td>False</td>
+      <td>False</td>
+    </tr>
+<tr>
+<th>80254</th>
+      <td>8883622</td>
+      <td>gate_40</td>
+      <td>19</td>
+      <td>True</td>
+      <td>False</td>
+    </tr>
+<tr>
+<th>87958</th>
+      <td>9748250</td>
+      <td>gate_30</td>
+      <td>32</td>
+      <td>False</td>
+      <td>False</td>
+    </tr>
+<tr>
+<th>50640</th>
+      <td>5612555</td>
+      <td>gate_30</td>
+      <td>226</td>
+      <td>True</td>
+      <td>True</td>
+    </tr>
+</tbody>
+</table>
+</div>
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>We are more interested in using <code>retention_7</code> than <code>retention_1</code> column since it is very unlikely to have a player hits either level 30 or level 40 after only 1 day installing the game.</p>
+<p>However, one important thing to ensure first whether the size of the A/B groups is roughly proportional.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [3]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">df</span><span class="o">.</span><span class="n">groupby</span><span class="p">([</span><span class="s1">'version'</span><span class="p">])</span><span class="o">.</span><span class="n">size</span><span class="p">()</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+    <div class="prompt output_prompt">Out[3]:</div>
+
+
+
+
+<div class="output_text output_subarea output_execute_result">
+<pre>version
+gate_30    44700
+gate_40    45489
+dtype: int64</pre>
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>And our objective is to see whether the difference below is significant?</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [4]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">df</span><span class="o">.</span><span class="n">groupby</span><span class="p">([</span><span class="s1">'version'</span><span class="p">],</span> <span class="n">as_index</span><span class="o">=</span><span class="kc">False</span><span class="p">)[</span><span class="s1">'retention_7'</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+    <div class="prompt output_prompt">Out[4]:</div>
+
+
+
+<div class="output_html rendered_html output_subarea output_execute_result">
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+<thead><tr style="text-align: right;">
+<th></th>
+      <th>version</th>
+      <th>retention_7</th>
+    </tr></thead>
+<tbody>
+<tr>
+<th>0</th>
+      <td>gate_30</td>
+      <td>0.190201</td>
+    </tr>
+<tr>
+<th>1</th>
+      <td>gate_40</td>
+      <td>0.182000</td>
+    </tr>
+</tbody>
+</table>
+</div>
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h4 id="a.-Is-the-data-already-sufficient-enough?">a. Is the data already sufficient enough?<a class="anchor-link" href="posts/ab-testing-primer/#a.-Is-the-data-already-sufficient-enough?">¶</a>
+</h4>
+<p>Before conducting an A/B test it is imperative to determine the minimum sample size in order to ensure minimum detectable effect. Having inadequate samples will likely give uncertain results and we might not be able to detect changes where it is actually there.</p>
+<p>We want to minimize this probability of not admitting a change while there is actually a change, or in other words also called as <strong>false negative</strong> or <strong>Type-II error</strong>.</p>
+<p>However, it is more common to define the converse of it, i.e. <strong>true positive</strong> or <strong>power</strong> of the statistical test. We want the probability of accepting the positive change while actually there is indeed a positive change is as high as possible. As we will see, higher sample size will lead to an increase in power.</p>
+<p>Referring to <a href="https://books.google.co.id/books/about/Sample_Size_Calculations_in_Clinical_Res.html?id=7_0wDwAAQBAJ&amp;printsec=frontcover&amp;source=kp_read_button&amp;redir_esc=y#v=onepage&amp;q&amp;f=false">this book</a> which dedicated wholly to discuss sample size, the formula to determining the sample size for measuring proportion difference between two groups is</p>
+$$n_1=n_2=\frac{(z_{\alpha/2}+z_\beta)^2 (p_1(1-p_1)+p_2(1-p_2))}{\epsilon^2}$$<p>where</p>
+<li>$z_{\alpha/2}$ is normal quantile value at $\alpha/2$ significance level (usually $\alpha=5\%$),
+</li>
+<li>$z_{\beta}$ is normal quantile value at $\beta$ (usually $\beta=20\%)$ that gives 80% power,
+</li>
+<li>$p_1$ is baseline conversion rate (i.e. 0.190201 in this data),
+</li>
+<li>$\epsilon$ is the minimum detectable effect or effect size which predetermined based on business needs,
+</li>
+<li>$p_2 = p_1 + \epsilon$ is the aimed uplift on the treatment group,</li>
+<p>Note that we already have $p_2$ in our data, i.e. 0.182. Before conducting an A/B test, we definitely have no idea what the quantity of $p_2$ is and of course we are not aiming for decrease in retention rate.</p>
+<p>Let's try to make a simulation with varying minimum detectable effect; 0.01, 0.02, 0.04, 0.08, 0.16 respectively.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [5]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">mdes</span> <span class="o">=</span> <span class="p">[</span><span class="o">.</span><span class="mi">01</span><span class="p">,</span> <span class="o">.</span><span class="mi">02</span><span class="p">,</span> <span class="o">.</span><span class="mi">04</span><span class="p">,</span> <span class="o">.</span><span class="mi">08</span><span class="p">,</span> <span class="o">.</span><span class="mi">16</span><span class="p">]</span>
+<span class="n">ssize</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="n">power</span> <span class="o">=</span> <span class="mf">0.8</span>
+<span class="n">alpha</span> <span class="o">=</span> <span class="mf">0.05</span>
+<span class="n">p1</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">groupby</span><span class="p">([</span><span class="s1">'version'</span><span class="p">])</span><span class="o">.</span><span class="n">retention_7</span><span class="o">.</span><span class="n">mean</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+
+<span class="k">for</span> <span class="n">mde</span> <span class="ow">in</span> <span class="n">mdes</span><span class="p">:</span>
+    <span class="n">p2</span> <span class="o">=</span> <span class="n">p1</span> <span class="o">+</span> <span class="n">mde</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="p">(</span><span class="n">stats</span><span class="o">.</span><span class="n">norm</span><span class="o">.</span><span class="n">ppf</span><span class="p">(</span><span class="mi">1</span><span class="o">-</span><span class="n">alpha</span><span class="o">/</span><span class="mi">2</span><span class="p">)</span> <span class="o">+</span> <span class="n">stats</span><span class="o">.</span><span class="n">norm</span><span class="o">.</span><span class="n">ppf</span><span class="p">(</span><span class="n">power</span><span class="p">))</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="p">(</span><span class="n">p1</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span><span class="o">-</span><span class="n">p1</span><span class="p">)</span> <span class="o">+</span> <span class="n">p2</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span><span class="o">-</span><span class="n">p2</span><span class="p">))</span> <span class="o">/</span> <span class="n">mde</span><span class="o">**</span><span class="mi">2</span>
+    <span class="n">ssize</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="mi">5</span><span class="p">))</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="n">ssize</span><span class="p">)</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+    <div class="prompt"></div>
+
+
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>[24656.90692, 6279.91869, 1624.88232, 430.72858, 116.99281]
+</pre>
+</div>
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>As you may notice as the minimum detectable effect getting smaller, more sample size is needed in order the test to be able to detect the possible effects. Since the sample in our data is around 40 thousand for each group, it seems the statistical power is already high enough to avoid Type-II error given the simulation above.</p>
+<h3 id="2.-Frequentist-Approach">2. Frequentist Approach<a class="anchor-link" href="posts/ab-testing-primer/#2.-Frequentist-Approach">¶</a>
+</h3>
+<h4 id="a.-Hypothesis-test">a. Hypothesis test<a class="anchor-link" href="posts/ab-testing-primer/#a.-Hypothesis-test">¶</a>
+</h4>
+<p>Following is the classical-way of comparing proportions between two groups. Firstly, we test the null hypothesis where</p>
+$$H_0: p_1 - p_2 = 0$$<p>with test statistic that asymptotically follows standard normal distribution as</p>
+$$\begin{aligned}
+Z &amp;= \frac{(\hat{p}_1-\hat{p}_2) - (p_1-p_2)}{\sqrt{\hat{p}(1-\hat{p})\left(\frac{1}{n_1}+\frac{1}{n_2}\right)}} \\
+\end{aligned}$$<p>where the pooled proportion is</p>
+$$\hat{p} = \frac{Y_1+Y_2}{n_1+n_2}$$<p>The test statistic $Z$ consists of numerator $\hat{p}_1-\hat{p}_2$ (<code>gate_30</code> group $-$ <code>gate_40</code> group) which is our point estimate and $p_1-p_2$ as the value we want to compare with (i.e. zero). The denominator is basically the estimated standard deviation of retention difference, namely $\text{SD}(p_1-p_2)$ or $\sqrt{\text{Var}(p_1-p_2)}$. I would recommend to look onto <a href="https://newonlinecourses.science.psu.edu/stat414/node/268/">this explanation</a> for a brief derivation of the formula. Computing the values,</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [6]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">df_grp</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">groupby</span><span class="p">([</span><span class="s1">'version'</span><span class="p">])</span>
+<span class="n">p1_hat</span> <span class="o">=</span> <span class="n">df_grp</span><span class="o">.</span><span class="n">retention_7</span><span class="o">.</span><span class="n">mean</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+<span class="n">p2_hat</span> <span class="o">=</span> <span class="n">df_grp</span><span class="o">.</span><span class="n">retention_7</span><span class="o">.</span><span class="n">mean</span><span class="p">()[</span><span class="mi">1</span><span class="p">]</span>
+<span class="n">n1</span> <span class="o">=</span> <span class="n">df_grp</span><span class="o">.</span><span class="n">retention_7</span><span class="o">.</span><span class="n">size</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+<span class="n">n2</span> <span class="o">=</span> <span class="n">df_grp</span><span class="o">.</span><span class="n">retention_7</span><span class="o">.</span><span class="n">size</span><span class="p">()[</span><span class="mi">1</span><span class="p">]</span>
+<span class="n">Y1</span> <span class="o">=</span> <span class="n">df_grp</span><span class="o">.</span><span class="n">retention_7</span><span class="o">.</span><span class="n">sum</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+<span class="n">Y2</span> <span class="o">=</span> <span class="n">df_grp</span><span class="o">.</span><span class="n">retention_7</span><span class="o">.</span><span class="n">sum</span><span class="p">()[</span><span class="mi">1</span><span class="p">]</span>
+
+<span class="n">phat</span> <span class="o">=</span> <span class="p">(</span><span class="n">Y1</span><span class="o">+</span><span class="n">Y2</span><span class="p">)</span><span class="o">/</span><span class="p">(</span><span class="n">n1</span><span class="o">+</span><span class="n">n2</span><span class="p">)</span>
+<span class="n">Z</span> <span class="o">=</span> <span class="p">(</span><span class="n">p1_hat</span> <span class="o">-</span> <span class="n">p2_hat</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">phat</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span><span class="o">-</span><span class="n">phat</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span><span class="o">/</span><span class="n">n1</span> <span class="o">+</span> <span class="mi">1</span><span class="o">/</span><span class="n">n2</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">Z</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+    <div class="prompt"></div>
+
+
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>3.164
+</pre>
+</div>
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>we obtain $Z=3.164$ and as you may remember this value is within the rejection region at 5% significance level (where the threshold is $\pm{1.96}$). Therefore <strong>we reject the null and conclude that players on group <code>gate_30</code> has significantly different (i.e. higher) retention rate than players on group <code>gate_40</code></strong>.</p>
+<p>Sadly, moving the gate to  level 40 turns out to lower the retention rate of the players.</p>
+<h4 id="b.-P-value-approach">b. P-value approach<a class="anchor-link" href="posts/ab-testing-primer/#b.-P-value-approach">¶</a>
+</h4>
+<p>Either way, we could find the p-value of this result. Finding the probability of the tails on both side with $Z=\pm{3.164}$, we obtain</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [7]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="mi">2</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">stats</span><span class="o">.</span><span class="n">norm</span><span class="o">.</span><span class="n">cdf</span><span class="p">(</span><span class="n">Z</span><span class="p">))</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+    <div class="prompt output_prompt">Out[7]:</div>
+
+
+
+
+<div class="output_text output_subarea output_execute_result">
+<pre>0.0015542499756142636</pre>
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>which is reasonably small (p-value $&lt; 0.05$) and the conclusion still holds the same.</p>
+<p>If you are lazy enough and not knowing the formula, we can however utilize one of the scipy stats methods which returns the exact same quantile and p-value. But first we need to input the values in either 0/1 form.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [8]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">grp_A</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">df</span><span class="o">.</span><span class="n">version</span><span class="o">==</span><span class="s1">'gate_30'</span><span class="p">]</span><span class="o">.</span><span class="n">retention_7</span><span class="o">.</span><span class="n">replace</span><span class="p">({</span><span class="kc">True</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="kc">False</span><span class="p">:</span> <span class="mi">0</span><span class="p">})</span>
+<span class="n">grp_B</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">df</span><span class="o">.</span><span class="n">version</span><span class="o">==</span><span class="s1">'gate_40'</span><span class="p">]</span><span class="o">.</span><span class="n">retention_7</span><span class="o">.</span><span class="n">replace</span><span class="p">({</span><span class="kc">True</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="kc">False</span><span class="p">:</span> <span class="mi">0</span><span class="p">})</span>
+<span class="n">stats</span><span class="o">.</span><span class="n">ttest_ind</span><span class="p">(</span><span class="n">grp_A</span><span class="p">,</span> <span class="n">grp_B</span><span class="p">)</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+    <div class="prompt output_prompt">Out[8]:</div>
+
+
+
+
+<div class="output_text output_subarea output_execute_result">
+<pre>Ttest_indResult(statistic=3.1644994996802778, pvalue=0.0015540151201088365)</pre>
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h4 id="c.-Confidence-interval">c. Confidence interval<a class="anchor-link" href="posts/ab-testing-primer/#c.-Confidence-interval">¶</a>
+</h4>
+<p>Lastly, we could alternatively find the confidence interval of the retention difference. If the confidence interval happens to contain zero, then it is likely that the difference is not statistically significant and we cannot safely conclude the retention is different between the groups. Remember that the confidence interval formula goes like this</p>
+$$\text{point estimate} \ \pm \ \text{critical value} \ \times \sqrt{\text{Var(point estimate)}}$$<p>and for our case it is</p>
+$$(\hat{p}_1-\hat{p}_2) \ \pm z_{\alpha/2} \ \times \sqrt{\frac{\hat{p}_1(1-\hat{p}_1)}{n_1} + \frac{\hat{p}_2(1-\hat{p}_2)}{n_2}}$$<p>For this case, we have a slightly difference variance of the point estimate than we had earlier. For the reason why, refer to <a href="https://newonlinecourses.science.psu.edu/stat414/node/209/"> this link</a> for the explanation. Then we obtain the confidence interval within</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [9]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">marg_err</span> <span class="o">=</span> <span class="n">stats</span><span class="o">.</span><span class="n">norm</span><span class="o">.</span><span class="n">ppf</span><span class="p">(</span><span class="mf">0.975</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">((</span><span class="n">p1_hat</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span><span class="o">-</span><span class="n">p1_hat</span><span class="p">)</span> <span class="o">/</span> <span class="n">n1</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span><span class="n">p2_hat</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span><span class="o">-</span> <span class="n">p2_hat</span><span class="p">)</span> <span class="o">/</span> <span class="n">n2</span><span class="p">))</span>
+<span class="n">low_bnd</span> <span class="o">=</span> <span class="p">(</span><span class="n">p1_hat</span> <span class="o">-</span> <span class="n">p2_hat</span><span class="p">)</span> <span class="o">-</span> <span class="n">marg_err</span>
+<span class="n">upp_bnd</span> <span class="o">=</span> <span class="p">(</span><span class="n">p1_hat</span> <span class="o">-</span> <span class="n">p2_hat</span><span class="p">)</span> <span class="o">+</span> <span class="n">marg_err</span>
+<span class="n">conf_int</span> <span class="o">=</span> <span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">low_bnd</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="nb">round</span><span class="p">(</span><span class="n">upp_bnd</span><span class="p">,</span> <span class="mi">5</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">conf_int</span><span class="p">)</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+    <div class="prompt"></div>
+
+
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>(0.00312, 0.01328)
+</pre>
+</div>
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>The confidence interval suggests the retention difference is indeed statistically significant.</p>
+<h3 id="2.-Bayesian-approach">2. Bayesian approach<a class="anchor-link" href="posts/ab-testing-primer/#2.-Bayesian-approach">¶</a>
+</h3>
+<p>Another useful method to analyse the A/B test result is using Bayesian framework. It offers a more interpretable question to business stakeholders such as <strong>"what is the probability putting the gate at level 40 gives more retention than putting the gates at level 30?"</strong> instead of frequentist approach that states mere statistical significance (also there has been a long-standing debate surrounding the use of p-value).</p>
+<p>In Bayesian inference, typically we have the following formula:</p>
+$$p(\theta | y) \propto p(\theta) \ \times \ p(y | \theta)$$<p>where it means our belief regarding a parameter (i.e. $\theta$ is retention rate in this case) given the observed data is proportional with our <strong>prior</strong> belief about the parameter multiplied by the <strong>likelihood</strong> of the observation that we believe stems from the given parameter. The LHS part of the equation often called as <strong>posterior</strong>. We need to determine the statistical distribution of these three components.</p>
+<p>In the end, we then sample the posterior distribution by doing Monte Carlo simulation and analyse the results from the generated samples.</p>
+<h4 id="a.-Likelihood-function">a. Likelihood function<a class="anchor-link" href="posts/ab-testing-primer/#a.-Likelihood-function">¶</a>
+</h4>
+<p>Now, you might notice that the retention rate on each group is a series of Bernoulli trials (come back 7 days after installation or not) i.e. <strong>distributed binomially</strong> (actually this plays part as well in the derivation on the frequentist part earlier). These series of Bernoulli trials is our <strong>likelihood distributions</strong> or we denote that as</p>
+$$y|\theta \sim \text{Binomial}(n, \theta)$$<p></p>
+<p>with $n$ trials and $y$ successes (showing up) with probability $\theta$.</p>
+<h4 id="b.-Prior-distribution">b. Prior distribution<a class="anchor-link" href="posts/ab-testing-primer/#b.-Prior-distribution">¶</a>
+</h4>
+<p>What about the <strong>prior distribution</strong>, the prior belief about the retention rate? One thing for sure is that the retention rate is a value within [0, 1] and a <strong>beta distribution</strong> seems to have this range of value so we decide to choose this distribution as our prior.</p>
+<p>Actually, we can use any kind of prior besides beta distribution that has support between 0 and 1 (such as exponential distribution), but there is a nice thing between beta distribution and binomial distribution. They have a <strong>conjugacy</strong> property that allows for mathematical convenience; i.e. the posterior distribution will be also of the form of prior distribution but with updated parameters.</p>
+<h4 id="c.-Posterior-distribution">c. Posterior distribution<a class="anchor-link" href="posts/ab-testing-primer/#c.-Posterior-distribution">¶</a>
+</h4>
+<p>Now, consider $\theta \sim \text{Beta}(a, b)$, then the preceding formula becomes</p>
+$$\begin{aligned}
+p(\theta | y) &amp;\propto \theta^{a-1}(1-\theta)^{b-1} \ \times \theta^{y}(1-\theta)^{n-y} \\
+&amp;\propto \theta^{a+y-1}(1-\theta)^{b+n-y-1} \\
+\end{aligned}$$<p>Then our posterior distribution is also a beta distribution with the following parameter</p>
+$$\theta | y \sim \text{Beta}(a+y, b+n-y)$$<p>here I omitted $\frac{\Gamma(a+b)}{\Gamma(a)\Gamma(b)}$ and ${n \choose y}$ term on both the beta and binomial density above since they give no contribution to the parameter $\theta$. The posterior distribution above can also be rephrased as</p>
+$$\theta | y \sim \text{Beta}(a+\text{successes}, b+\text{failures})$$<p>The next <strong>important</strong> step is we compute the posterior distribution of each control and treatment group and simulate the samples using Monte Carlo procedures as many as possible. We then compare the Monte Carlo samples between the groups.</p>
+<p>For now, we set the prior as $\theta \sim \text{Beta}(1, 1)$ which is also called as <strong>non-informative prior</strong>, since it gives basically no information/emphasize towards particular value of the parameter that we want to measure. We will discuss how to choose prior on another post.</p>
+<p>Again, using the scipy stats function we can easily do these steps</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [10]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="mi">15</span><span class="p">)</span>
+
+<span class="c1"># setting up the prior parameters</span>
+<span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span>
+
+<span class="c1"># posterior distributions</span>
+<span class="n">posterior_gate_30</span> <span class="o">=</span> <span class="n">stats</span><span class="o">.</span><span class="n">beta</span><span class="p">(</span><span class="n">a</span> <span class="o">+</span> <span class="n">Y1</span><span class="p">,</span> <span class="n">b</span> <span class="o">+</span> <span class="n">n1</span> <span class="o">-</span> <span class="n">Y1</span><span class="p">)</span>
+<span class="n">posterior_gate_40</span> <span class="o">=</span> <span class="n">stats</span><span class="o">.</span><span class="n">beta</span><span class="p">(</span><span class="n">a</span> <span class="o">+</span> <span class="n">Y2</span><span class="p">,</span> <span class="n">b</span> <span class="o">+</span> <span class="n">n2</span> <span class="o">-</span> <span class="n">Y2</span><span class="p">)</span>
+
+<span class="c1"># generating the posterior sample</span>
+<span class="n">n_sample</span> <span class="o">=</span> <span class="mi">10</span><span class="o">**</span><span class="mi">4</span> 
+<span class="n">posterior_gate_30_spl</span> <span class="o">=</span> <span class="n">posterior_gate_30</span><span class="o">.</span><span class="n">rvs</span><span class="p">(</span><span class="n">n_sample</span><span class="p">)</span>
+<span class="n">posterior_gate_40_spl</span> <span class="o">=</span> <span class="n">posterior_gate_40</span><span class="o">.</span><span class="n">rvs</span><span class="p">(</span><span class="n">n_sample</span><span class="p">)</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>The probability having more retention by moving the gate to level 40 is then</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [11]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">prob</span> <span class="o">=</span> <span class="p">(</span><span class="n">posterior_gate_40_spl</span> <span class="o">&gt;</span> <span class="n">posterior_gate_30_spl</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="si">{:.3f}</span><span class="s2">%"</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">prob</span><span class="o">*</span><span class="mi">100</span><span class="p">))</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+    <div class="prompt"></div>
+
+
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>0.180%
+</pre>
+</div>
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>which implies <strong>there is only 0.18% chance moving the gate to level 40 will make a player spend more time playing the game</strong>. Definitely, this miniscule number strongly suggests that we should keep the gate as it is on level 30.</p>
+<p>We can also plot the posterior distribution to visually examine the spread of both samples.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [12]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="kn">from</span> <span class="nn">IPython.core.pylabtools</span> <span class="kn">import</span> <span class="n">figsize</span>
+<span class="n">figsize</span><span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">hist</span><span class="p">(</span><span class="n">posterior_gate_30_spl</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.75</span><span class="p">,</span> <span class="n">bins</span><span class="o">=</span><span class="mi">40</span><span class="p">,</span> <span class="n">edgecolor</span><span class="o">=</span><span class="s1">'black'</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">"posterior of gate 30"</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">hist</span><span class="p">(</span><span class="n">posterior_gate_40_spl</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.75</span><span class="p">,</span> <span class="n">bins</span><span class="o">=</span><span class="mi">40</span><span class="p">,</span> <span class="n">edgecolor</span><span class="o">=</span><span class="s1">'black'</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">"posterior of gate 40"</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s1">'Value'</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s1">'Density'</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s2">"Posterior distributions of the retention rates of gate $30$ and $40$"</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+    <div class="prompt"></div>
+
+
+
+
+<div class="output_png output_subarea ">
+<img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAA0MAAAEYCAYAAACeFi3yAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAALEgAACxIB0t1+/AAAADh0RVh0U29mdHdhcmUAbWF0cGxvdGxpYiB2ZXJzaW9uMy4xLjEsIGh0dHA6Ly9tYXRwbG90bGliLm9yZy8QZhcZAAAgAElEQVR4nO3de7xVZb3o/883IfGGJCEhFyFTjEBRoUyzRNPATazagmFqeDmhqOUutchf++zLz86hw05NJfuxjxcsFckb7L3TPBsxt0fKwEjxDgTrAiLeSDQQ4vn9MQe0WK7LWIs11m1+3q/XfK05nvE8Y3zHnGPNNb/recYzIqWEJEmSJJWbD7R3AJIkSZLUHkyGJEmSJJUlkyFJkiRJZclkSJIkSVJZMhmSJEmSVJZMhiRJkiSVJZMhSZIkSWXJZEiSJElSWTIZktSuIuLZiDixwO3fFhFXF7Gv2tuLiNUR8fkitt0RRMTQiFgWEW9HxDdz1G/V16Oj6WjvT1tr7vmgXT+LJHUcJkNSGcm+oP45IjZFxPrsj/O+u7m93frCm1L6RErp0d3ZRmvvK+9xtVbs9e2vLV+XnL4DLEop7ZdSur7uyo6U/BSQmHbY96cdX/dGz4fdsbvHFBE/j4h1EfGniHgpIv5brXUHRMT9EfFORKyJiK+2TtStIyIOjYjNEfHzOuUdOm6pMzMZksrPF1NK+wJHA6OA77dHEBHRrT3bd9Z9t6ODgWfbO4hyeu07+LF2iPOhAf8TGJxS6glMAK6OiGOydbOA94C+wFnATRHxifYJs16zgN81UN6R45Y6LZMhqUyllGqAB4HhABHx8Yh4NCLeyoYATdhRNyK+GxE12ZCYFyPi5Ij4GTAI+Lesp+k7Wd2DIuLeiNgQEX+sPYQm+4/vdyPiaeCdiOhW97/ATcTxvvZ1jysijoqIp7JY7wZ61Glfe1/NOa4mYwdGR8RzEfFmRNwaEbX3nSLiY7WWb4uIq5vY3+ebek1q1b0iIp6OiI0RcfeOfdd3jPWdD0287o8AY4AbsxgPq9O23mMARtYXU9amwfOkntjqe+3rbd+S87Kx17Do9yfnsU6PiJXZe/hcRHy5pcfaFudDVufoiPh9tp9fZMe8Y7hqvcfT0DE151wBSCk9m1LasmMxexwSEfsApwN/n1LalFJ6HFgAnNPQtpqItdH3NRr5LGpgX5OBt4CFdcqbHbekZkgp+fDho0wewGrg89nzgZT+s/v/At2BFcBVwAeBk4C3gaHZowo4KGs3GDik7vay5Q8AS4H/nm3no8Aq4Au16i/L9r1XPTE1GEdD7esc3weBNcC3sm1NBLYCV9ezr9zHlTP21cDybP0BwP/dsd9sfQI+Vmv5tvriqvteNfWa1Kr7JHBQtu/ngYsaO8Y6+8qzj0eB/5bn3GospjznSQPb3vnaN9W+nlia3F8T8Rby/uQ51qxsUtb2A8BXgHeAfs091rY6H/jr7+Fl2bb+llKvxtVNHU89v1fNOldqbeMnwLuUfu+eAvYFjgLerVPvCuDfGtlOU699Q+dMo59F9eynJ/ASMAD4R+DntdY1O24fPnzkf9gzJJWfByLiLeBx4NfA/wCOpfRlYUZK6b2U0iPAvwNnAn8B9gSGRUT3lNLqlNLKBrY9GuiTUvrnbDurgH8FJteqc31KqSql9Od62jcWR9723YHrUkpbU0r3UP+QE5p5XHn2DXBjtv4N4Ad14m6pPK/JjtjWZvv+N2Ak+Y8x7z6aq76YIN95Ut+2drz2zW2ft35D8TZmd96fPMdKSukXWdvtKaW7gZeBT7bgWNvqfDgW6JYdx9aU0n2UkgZa+XgalFK6GNgPOAG4D9iSHdOf6lTdmNVraDtNxdrQ+9qczyIo/VPq5pRSdT3rmh23pPw68nhkScX4UkrpP2sXRMRBQFVKaXut4jVA/5TSioj4O0r/rfxERPwK+HZKaW092z4YOChLtnbYA/ivWstVjcTWYBzNaF+TUkp12r9PM48rz77rrl+TxbO78rwmAK/Uev4upf/+5z3GvPtorvfFlD3Pc57UVfu1bW77vPUbircxLX5/GtnmLudZRHwN+DalnhwofTn+cANtGzzWNjwf6vs93HlMrXU8TQWRUvoL8HhEnA1My9r0rFOtJ6Ver3rliLWh9zX3Z1FEjKTUy3hUA2Fsam7ckvKzZ0gSwFpgYETU/kwYBNQApJTuTCl9htIXkwT8MKuT2FUV8MeUUq9aj/1SSqfVqlO3Te44crRfB/SPiKjTvl7NOK48+4bS0Kba+639JfNdYO9ayx/Jud08r0mDGjnGVtvHjl01o26e86Sx7TfVviXnZWMKe3+a2l9EHEypJ+RSoHdKqRel4ZhRt26m0WNto/Ohvt/DgTmPp+4x7e57B6V//B5CaRhat4g4tNa6I2lgIoicsTakOZ9FJ1JKtioj4hVKQ+BOj4insvXNiltS85gMSQL4LaUv69+JiO5Run/KF4G5UbqfyEkRsSewGfgzsOM/xuspjeHf4Ung7ewi7b0iYo+IGB4Ro3c3jpztFwPbgG9m7f+WBobfNPO48rokIgZExAHA/wPcXWvdMuCr2WsyFvhcrXWN7a/Fr0kTx9gq+8h5DHXt7nnSVPvWPi8LeX9y2odScrABICLOI5v0pIHYGjzWNjwfFlMakndplCaAqOCvv4dNHU/dY2rWexcRB0bE5IjYN6v7BUrD+xamlN6hNGTunyNin4g4HqgAftbAceSJtbHXINdnETCbUrI2Mnv8FPgPStd50YK4JTWDyZAkUkrvUfqyMw54jdLFx19LKb1A6RqDGVn5K8CBwPeypv8T+H6UZpy6IhuWMp7SH/Q/Zm3+N7B/K8SRt/3fAucCb1C64Pm+BqrnPq48+87cCTxM6QLvlUDtGyxeRunY3qI0Ne4DtdY1uL/dfE0aO8bW2keTx1DP/nb3PGmqfauel40dWyu9dg1KKT0H/IjSl+v1wAhKk3PUG1sTx9om50Ot38MLKJ3vZ1O65mhLjuPZ5ZgoTUDQnPcuURoSVw28CfwL8HcppQXZ+ospTcLxKnAXMC2lVG8PS85Ym3oNzqWJz6KU0rsppVd2PCgNi9ucUtpQq1ruuCU1T+w6nFWSJKl1RcRvgZ+mlG5t71gkqTZ7hiRJUquKiM9FxEeyYXJTgCOAh9o7Lkmqy9nkJElSaxsKzKN03c0qYGJKaV37hiRJ7+cwOUmSJEllyWFykiRJkspSpx4m9+EPfzgNHjy4vcOQJEmS1EEtXbr0tZRSn/rWdepkaPDgwSxZsqS9w5AkSZLUQUXEmobWOUxOkiRJUlkyGZIkSZJUlkyGJEmSJJWlTn3NkCRJksrT1q1bqa6uZvPmze0dijqIHj16MGDAALp37567jcmQJEmSOp3q6mr2228/Bg8eTES0dzhqZyklXn/9daqrqxkyZEjudg6TkyRJUqezefNmevfubSIkACKC3r17N7un0GRIkiRJnZKJkGpryflgMiRJkiSpLHnNkCRJkjq9cRWnU1WzrtW2N7B/Px6cf2+rba8hDzzwAIcddhjDhg1rVrsFCxbw3HPPMX369FaP6cwzz+TZZ5/lvPPO41vf+laLt/PWW29x5513cvHFFzer3dixY1m3bh3btm3jhBNOYNasWeyxxx688cYbfOUrX2H16tUMHjyYefPm8aEPfajF8QFESmm3NtCeRo0alZYsWdLeYUhqRZMrxrJ+bWXu+n0PGsTc+Q8VGJEkqSN6/vnn+fjHP75zefio4xg+9Uettv3lsy9n+ZInWm17DTn33HMZP348EydOzN1m27ZtdOvWvD6NvG1eeeUVPvOZz7BixYpmbb8+q1evZvz48SxfvrxZ7f70pz/Rs2dPUkpMnDiRSZMmMXnyZL7zne9wwAEHMH36dGbMmMGbb77JD3/4w13a1j0vACJiaUppVH37smdIUoeyfm0liy75aO76Y2atKjAaSZLqt3r1asaOHcsxxxzDU089xSc+8Qluv/129t57bxYuXMgVV1zBtm3bGD16NDfddBN77rkn06dPZ8GCBXTr1o1TTz2Vv/3bv2XBggX8+te/5uqrr+bee0s9UZdccgkbNmxg77335l//9V85/PDDOffcc+nRowe///3vOf744zniiCNYsmQJN954I6tXr+b888/ntddeo0+fPtx6660MGjTofW2uueaanfFv3ryZadOmsWTJErp168Y111zDmDFjOPXUU6mpqWHkyJHccMMNnHDCCTvbrFy5krPOOot33nmHiooKrrvuOjZt2sSmTZuoqKjgzTffZOvWrVx99dVUVFQwffp0Vq5cyciRIznllFOYOXMmM2fOZN68eWzZsoUvf/nL/NM//dP7XtuePXsCpQTuvffe23kt0Pz583n00UcBmDJlCieeeOL7kqHm8pohSZIkqQVefPFFLr74Yp5//nl69uzJT37yEzZv3sy5557L3XffzTPPPMO2bdu46aabeP3117n//vt59tlnefrpp/n+97/Pcccdx4QJE5g5cybLli3jkEMOYerUqdxwww0sXbqUf/mXf9lliFl1dTVPPPHELkkNwDe+8Q2mTJnC008/zVlnncU3v/nNJtvMmjWLiOCZZ57hrrvuYsqUKWzevJkFCxZwyCGHsGzZsl0SIYDLLruMyy67jGeeeYYBAwbsLO/Rowf3338/Tz31FIsWLeLyyy8npcSMGTN2bmvmzJk8/PDDvPzyyzz55JMsW7aMpUuX8thjj9X72n7hC1/gwAMPZL/99tvZa7Z+/Xr69esHwEc+8hHWr1/fgndtV4UmQxHxrYh4NiKWR8RdEdEjIoZExG8jYkVE3B0RH8zq7pktr8jWDy4yNkmSJGl3DBw4kOOPPx6As88+m8cff5wXX3yRIUOGcNhhhwGlHozHHnuM/fffnx49enDBBRdw3333sffee79ve5s2beKJJ55g0qRJjBw5kgsvvJB16/56HdSkSZPYY4893tdu8eLFfPWrXwXgnHPO4fHHH2+yzeOPP87ZZ58NwOGHH87BBx/MSy+91OjxLl68mEmTJgHs3B+U7vFz1VVXccQRR/D5z3+empqaehOVhx9+mIcffpijjjqKo48+mhdeeIGXX3653n396le/Yt26dWzZsoVHHnnkfesjolVmEyxsmFxE9Ae+CQxLKf05IuYBk4HTgGtTSnMj4qfABcBN2c83U0ofi4jJwA+BrxQVnyRJkrQ76n4Zb+zLebdu3XjyySdZuHAh99xzDzfeeOP7vuRv376dXr16sWzZsnq3sc8++zQ7xpa0aa477riDDRs2sHTpUrp3787gwYPrvd9PSonvfe97XHjhhbm226NHDyoqKpg/fz6nnHIKffv2Zd26dfTr149169Zx4IEH7nbsRQ+T6wbsFRHdgL2BdcBJwD3Z+jnAl7LnFdky2fqTw8njJUmS1EFVVlayePFiAO68804+85nPMHToUFavXr1zAoKf/exnfO5zn2PTpk1s3LiR0047jWuvvZY//OEPAOy33368/fbbQOlamSFDhvCLX/wCKCUPO+o15rjjjmPu3LlAKTGpO7ytPieccAJ33HEHAC+99BKVlZUMHTq00TbHHnvszuuaduwPYOPGjRx44IF0796dRYsWsWbNmvcdG5SGvt1yyy1s2rQJgJqaGl599dVd9rFp06advWHbtm3jP/7jPzj88MMBmDBhAnPmlNKFOXPmUFFR0eRxNqWwnqGUUk1E/AtQCfwZeBhYCryVUtqWVasG+mfP+wNVWdttEbER6A28Vnu7ETEVmAowaNCgosKXJElSJzKwfz+Wz768VbfXlKFDhzJr1izOP/98hg0bxrRp0+jRowe33norkyZN2jmBwkUXXcQbb7xBRUUFmzdvJqW08xqeyZMn8/Wvf53rr7+ee+65hzvuuINp06Zx9dVXs3XrViZPnsyRRx7ZaBw33HAD5513HjNnztw5gUJTLr74YqZNm8aIESPo1q0bt912G3vuuWejba677jrOPvtsfvCDHzB27Fj2339/AM466yy++MUvMmLECEaNGrUzeenduzfHH388w4cPZ9y4ccycOZPnn3+eT3/60wDsu+++/PznP9+lh+edd95hwoQJbNmyhe3btzNmzBguuugiAKZPn84ZZ5zBzTffzMEHH8y8efOaPM6mFDa1dkR8CLiX0lC3t4BfUOrx+ceU0seyOgOBB1NKwyNiOTA2pVSdrVsJfCql9Fq9O8CptaWuaMzoYc2eTW7R754rMCJJUkdU3xTKbaml00Z3Zu+++y577bUXEcHcuXO56667mD9/fnuHtYuONLX254E/ppQ2ZEHcBxwP9IqIblnv0ACgJqtfAwwEqrNhdfsDrxcYn6QuYE1lFWNG57tRnfckkiSp5ZYuXcqll15KSolevXpxyy23tHdIu63IZKgSODYi9qY0TO5kYAmwCJgIzAWmADvSyQXZ8uJs/SOpM98RVlKbiO1bc/ckeU8iSVJrGTx4cFn1CkHpOqM81zB1JoVNoJBS+i2lYXFPAc9k+5oNfBf4dkSsoHRN0M1Zk5uB3ln5t4HpRcUmSZIkSUX2DJFS+gfgH+oUrwI+WU/dzcCkIuORJEmSpB2KnlpbkiRJkjokkyFJkiRJZanQYXKSJElSW5hcMZb1aytbbXttNQPpAw88wGGHHcawYflmRt1hwYIFPPfcc0yf3vqX2Z955pk8++yznHfeeXzrW99q8Xbeeust7rzzTi6++OIWtZ8wYQKrVq3aOVHFG2+8wVe+8hVWr17N4MGDmTdvHh/60IdaHB+YDEmSJKkLWL+2sln3qWtKW81A+sADDzB+/PhmJUPbtm1jwoQJTJgwoVltunVr+qv/K6+8wu9+9ztWrFiRe9sNeeutt/jJT37SomTovvvuY999992lbMaMGZx88slMnz6dGTNmMGPGDH74wx/uVowOk5NUqMkVYxkzeljuR011VXuHLElSk1avXs3hhx/OWWedxcc//nEmTpzIu+++C8DChQs56qijGDFiBOeffz5btmwBYPr06QwbNowjjjiCK664gieeeIIFCxZw5ZVXMnLkSFauXMnKlSsZO3YsxxxzDCeccAIvvPACAOeeey4XXXQRn/rUp/jOd77DbbfdxqWXXrozlpNOOokjjjiCk08+mcrKynrb1LZ582bOO+88RowYwVFHHcWiRYsAOPXUU6mpqWHkyJH813/91y5tVq5cybHHHsuIESP4/ve/vzNZ2bRpEyeffDJHH300I0aM2Hkj1unTp7Ny5UpGjhzJlVdeCcDMmTMZPXo0RxxxBP/wD3XnWWPn9q655hq+//3v71I+f/58pkyZAsCUKVN44IEHmvu2vY89Q5KarTlDEWqqq3jpf34u97YPudJ7AUmSOocXX3yRm2++meOPP57zzz+fn/zkJ1x66aWce+65LFy4kMMOO4yvfe1r3HTTTZxzzjncf//9vPDCC0QEb731Fr169WLChAmMHz+eiRMnAnDyySfz05/+lEMPPZTf/va3XHzxxTzyyCMAVFdX88QTT7DHHntw22237YzjG9/4BlOmTGHKlCnccsstfPOb39yZKNRuU9usWbOICJ555hleeOEFTj31VF566SUWLFjA+PHjWbZs2fuO97LLLuOyyy7jzDPP5Kc//enO8h49enD//ffTs2dPXnvtNY499lgmTJjAjBkzWL58+c5tPfzww7z88ss8+eSTpJSYMGECjz32GJ/97Gd32c/f//3fc/nll7P33nvvUr5+/Xr69esHwEc+8hHWr1/fkrdtFyZDkpqtOUMRTG4kSV3VwIEDOf744wE4++yzuf766znllFMYMmQIhx12GFDqwZg1axaXXnopPXr04IILLmD8+PGMHz/+fdvbtGkTTzzxBJMm/fVuMzt6lQAmTZr0vqQGYPHixdx3330AnHPOObv0AjXU5vHHH+cb3/gGAIcffjgHH3wwL730Ej179mzweBcvXrwzyfrqV7/KFVdcAUBKiauuuorHHnuMD3zgA9TU1NSbqDz88MM8/PDDHHXUUTuP9+WXX94lGVq2bBkrV67k2muvZfXq1Q3GEhFERIPr8zIZkiRJklqg7pfxxr6cd+vWjSeffJKFCxdyzz33cOONN+7s8dlh+/bt9OrVq95eGYB99tmn2TG2pE1z3XHHHWzYsIGlS5fSvXt3Bg8ezObNm99XL6XE9773PS688MIGt7V48WKWLFnC4MGD2bZtG6+++ionnngijz76KH379mXdunX069ePdevWceCBB+527F4zJEmSJLVAZWUlixcvBuDOO+/kM5/5DEOHDmX16tU7JyD42c9+xuc+9zk2bdrExo0bOe2007j22mv5wx/+AMB+++3H22+/DUDPnj0ZMmQIv/jFL4BS8rCjXmOOO+445s6dC5QS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">
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>From the figure above, the posterior distribution of each sample are clearly distinguishable and there is only a minor overlap that tells us the retention rate on both groups are hardly to be equal.</p>
+<h4 id="d.-Estimating-the-increase">d. Estimating the increase<a class="anchor-link" href="posts/ab-testing-primer/#d.-Estimating-the-increase">¶</a>
+</h4>
+<p>Besides of assessing which treatment gives a better improvement in the metrics we are optimising with, one another interesting thing that many decision-makers and business stakeholders are looking from an A/B test is the magnitude of the change from the new feature/variant.</p>
+<p>Many practiotioners will directly calculate the following value to estimate the increase</p>
+$$ \frac{\hat{p}_1 - \hat{p}_2}{\hat{p}_1} $$<p>in our case the quantity is $(0.190201-0.182)/0.182=4.31\%$. Remember in this case, this value is an "uplift" if we maintain the current gate at level 30 than to replace it to level 40! On the other hand, when there is a positive change, the variant point estimate will be the one who is subtracted not the other way around!</p>
+<p>However, we cannot rely this value from the calculation above because these two quantities are merely point estimates that is not necessarily reflects the true retention rate value of the larger population of Cookie Cats' players. We still want to account for uncertainty from both samples in estimating the increase and the posterior samples we generated can easily do that for us!</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [13]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">figsize</span><span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>
+<span class="n">post_rel_inc</span> <span class="o">=</span> <span class="p">(</span><span class="n">posterior_gate_30_spl</span> <span class="o">-</span> <span class="n">posterior_gate_40_spl</span><span class="p">)</span><span class="o">/</span><span class="n">posterior_gate_40_spl</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">hist</span><span class="p">(</span><span class="n">post_rel_inc</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.75</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">'#403BE1'</span><span class="p">,</span> <span class="n">bins</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="n">edgecolor</span><span class="o">=</span><span class="s1">'black'</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s1">'Value'</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s1">'Density'</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s2">"Posterior distributions difference of gate $30$ and $40$"</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+    <div class="prompt"></div>
+
+
+
+
+<div class="output_png output_subarea ">
+<img src="data:image/png;base64,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">
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [14]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="nb">print</span><span class="p">((</span><span class="n">post_rel_inc</span> <span class="o">&gt;</span> <span class="mf">0.05</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">())</span>
+<span class="nb">print</span><span class="p">((</span><span class="n">post_rel_inc</span> <span class="o">&gt;</span> <span class="mf">0.08</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">())</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+    <div class="prompt"></div>
+
+
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>0.3654
+0.0097
+</pre>
+</div>
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Looking at the figure and the calculation above, we can see that there is an 36.5% chance that the relative increase is at least 5%. Moreover, there is a 1% chance that the increase is 8%. These "lift" computations are indeed gives more intuitive interpretation.</p>
+<p>However in this case where the change is negative and you already know it from the beginning, you might not want to unnecessarily spend more time with this kind of analysis.</p>
+<h4 id="e.-Intro-to-PyMC3:-probabilistic-programming-library">e. Intro to PyMC3: probabilistic programming library<a class="anchor-link" href="posts/ab-testing-primer/#e.-Intro-to-PyMC3:-probabilistic-programming-library">¶</a>
+</h4>
+<p>PyMC3 is a versatile library that has myriad Bayesian inference tools. It houses variety of advanced sampling methods (namely <strong>Markov Chain Monte Carlo</strong> or <strong>MCMC</strong>), even the default sampler is the <a href="http://elevanth.org/blog/2017/11/28/build-a-better-markov-chain/">No U-Turn Sampling (NUTS)</a> algorithm, one of the recent variant of MCMC method that handles intractable posterior distribution; posterior that cannot be solved analytically due to inconjugacy of the prior.</p>
+<p>It might be exaggerating to use PyMC3 in this problem since the posterior already has a nice beta distribution form and having MCMC is not necessary, but this part serves as a useful warm-up before we further discuss Bayesian techniques in another blog post.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [15]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="kn">import</span> <span class="nn">pymc3</span> <span class="k">as</span> <span class="nn">pm</span>
+
+<span class="n">gate30</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="n">df</span><span class="o">.</span><span class="n">version</span><span class="o">==</span><span class="s1">'gate_30'</span><span class="p">][</span><span class="s1">'retention_7'</span><span class="p">]</span><span class="o">.</span><span class="n">replace</span><span class="p">({</span><span class="kc">False</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="kc">True</span><span class="p">:</span> <span class="mi">1</span><span class="p">}))</span>
+<span class="n">gate40</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="n">df</span><span class="o">.</span><span class="n">version</span><span class="o">==</span><span class="s1">'gate_40'</span><span class="p">][</span><span class="s1">'retention_7'</span><span class="p">]</span><span class="o">.</span><span class="n">replace</span><span class="p">({</span><span class="kc">False</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="kc">True</span><span class="p">:</span> <span class="mi">1</span><span class="p">}))</span>
+
+<span class="k">with</span> <span class="n">pm</span><span class="o">.</span><span class="n">Model</span><span class="p">()</span> <span class="k">as</span> <span class="n">model</span><span class="p">:</span>
+    <span class="c1"># Priors</span>
+    <span class="n">gate30_prior</span> <span class="o">=</span> <span class="n">pm</span><span class="o">.</span><span class="n">Beta</span><span class="p">(</span><span class="s1">'theta30'</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="n">a</span><span class="p">,</span> <span class="n">beta</span><span class="o">=</span><span class="n">b</span><span class="p">)</span>
+    <span class="n">gate40_prior</span> <span class="o">=</span> <span class="n">pm</span><span class="o">.</span><span class="n">Beta</span><span class="p">(</span><span class="s1">'theta40'</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="n">a</span><span class="p">,</span> <span class="n">beta</span><span class="o">=</span><span class="n">b</span><span class="p">)</span>
+    
+    <span class="c1"># Likelihood</span>
+    <span class="n">gate30_ylike</span> <span class="o">=</span> <span class="n">pm</span><span class="o">.</span><span class="n">Bernoulli</span><span class="p">(</span><span class="s1">'y30'</span><span class="p">,</span> <span class="n">p</span><span class="o">=</span><span class="n">gate30_prior</span><span class="p">,</span> <span class="n">observed</span><span class="o">=</span><span class="n">gate30</span><span class="p">)</span>
+    <span class="n">gate40_ylike</span> <span class="o">=</span> <span class="n">pm</span><span class="o">.</span><span class="n">Bernoulli</span><span class="p">(</span><span class="s1">'y40'</span><span class="p">,</span> <span class="n">p</span><span class="o">=</span><span class="n">gate40_prior</span><span class="p">,</span> <span class="n">observed</span><span class="o">=</span><span class="n">gate40</span><span class="p">)</span>
+    
+    <span class="c1"># Difference &amp; lift</span>
+    <span class="n">retention_diff</span> <span class="o">=</span> <span class="n">pm</span><span class="o">.</span><span class="n">Deterministic</span><span class="p">(</span><span class="s1">'diff'</span><span class="p">,</span> <span class="n">gate40_prior</span><span class="o">-</span><span class="n">gate30_prior</span><span class="p">)</span>
+    <span class="n">retention_lift</span> <span class="o">=</span> <span class="n">pm</span><span class="o">.</span><span class="n">Deterministic</span><span class="p">(</span><span class="s1">'lift'</span><span class="p">,</span> <span class="p">(</span><span class="n">gate30_prior</span><span class="o">-</span><span class="n">gate40_prior</span><span class="p">)</span><span class="o">/</span><span class="n">gate40_prior</span><span class="p">)</span>
+    
+    <span class="c1"># The inference button</span>
+    <span class="n">trace</span> <span class="o">=</span> <span class="n">pm</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="mi">5000</span><span class="p">)</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+    <div class="prompt"></div>
+
+
+<div class="output_subarea output_stream output_stderr output_text">
+<pre>/Users/dims/anaconda3/lib/python3.6/site-packages/h5py/__init__.py:34: FutureWarning: Conversion of the second argument of issubdtype from `float` to `np.floating` is deprecated. In future, it will be treated as `np.float64 == np.dtype(float).type`.
+  from ._conv import register_converters as _register_converters
+Auto-assigning NUTS sampler...
+Initializing NUTS using jitter+adapt_diag...
+Multiprocess sampling (2 chains in 2 jobs)
+NUTS: [theta40, theta30]
+Sampling 2 chains: 100%|██████████| 11000/11000 [00:46&lt;00:00, 234.47draws/s]
+The acceptance probability does not match the target. It is 0.8942193599289043, but should be close to 0.8. Try to increase the number of tuning steps.
+</pre>
+</div>
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>The probability of getting higher retention rate by putting the gate at level 40 is</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [16]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">trace</span><span class="p">[</span><span class="s1">'theta40'</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">trace</span><span class="p">[</span><span class="s1">'theta30'</span><span class="p">])</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+    <div class="prompt output_prompt">Out[16]:</div>
+
+
+
+
+<div class="output_text output_subarea output_execute_result">
+<pre>0.0011</pre>
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>One nice thing with PyMC3 it can give us the following sample distribution.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [17]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">pm</span><span class="o">.</span><span class="n">plot_posterior</span><span class="p">(</span><span class="n">trace</span><span class="p">,</span> <span class="n">var_names</span><span class="o">=</span><span class="p">[</span><span class="s1">'diff'</span><span class="p">,</span> <span class="s1">'lift'</span><span class="p">],</span> <span class="n">ref_val</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">textsize</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">12</span><span class="p">,</span><span class="mi">4</span><span class="p">))</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+    <div class="prompt output_prompt">Out[17]:</div>
+
+
+
+
+<div class="output_text output_subarea output_execute_result">
+<pre>array([&lt;matplotlib.axes._subplots.AxesSubplot object at 0x11eb6fc18&gt;,
+       &lt;matplotlib.axes._subplots.AxesSubplot object at 0x11e4cb048&gt;],
+      dtype=object)</pre>
+</div>
+
+</div>
+
+<div class="output_area">
+
+    <div class="prompt"></div>
+
+
+
+
+<div class="output_png output_subarea ">
+<img src="data:image/png;base64,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">
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>The figure on the left tells us that the probability of moving the gate to level 40 gives more retention is 0.1%, which also means 99.9% of the time putting the gate as it was is more effective than at the gate level 40!</p>
+<p>The HPD stands for <strong>highest posterior density</strong> that in this case shows us by moving the gate at level 40, 94% of the time the retention rate difference will be between -1.3% and -0.31%, which also actually worse no matter we repeat the experiment!</p>
+<p>Similarly with estimating the lift we previously did, the figure on the right tells us by maintaining the gate at level 30, we will guarantee an uplift 99.9% of the time. And the retention lift itself will be between 1.6% and 7.2% 94% of the time!</p>
+<p>Lastly, we can do similar calculation regarding the lift from our samples which gives us 36.83% chance of having the relative increase as large as 5% and 1.04% chance of having the increase by 8%! These values are very close to previous one that we obtained without MCMC.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [18]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">trace</span><span class="p">[</span><span class="s1">'lift'</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mf">0.05</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">trace</span><span class="p">[</span><span class="s1">'lift'</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mf">0.08</span><span class="p">))</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+    <div class="prompt"></div>
+
+
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>0.3683
+0.0104
+</pre>
+</div>
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="3.-Generalized-Linear-Model-(extra-content!)">3. Generalized Linear Model (extra content!)<a class="anchor-link" href="posts/ab-testing-primer/#3.-Generalized-Linear-Model-(extra-content!)">¶</a>
+</h3>
+<p>Another method that could be utilized in this problem is by employing a generalized linear method. I was thinking that given the data we have below</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [19]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">df</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+    <div class="prompt output_prompt">Out[19]:</div>
+
+
+
+<div class="output_html rendered_html output_subarea output_execute_result">
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+<thead><tr style="text-align: right;">
+<th></th>
+      <th>userid</th>
+      <th>version</th>
+      <th>sum_gamerounds</th>
+      <th>retention_1</th>
+      <th>retention_7</th>
+    </tr></thead>
+<tbody>
+<tr>
+<th>1726</th>
+      <td>187168</td>
+      <td>gate_40</td>
+      <td>8</td>
+      <td>False</td>
+      <td>False</td>
+    </tr>
+<tr>
+<th>89831</th>
+      <td>9961964</td>
+      <td>gate_40</td>
+      <td>16</td>
+      <td>True</td>
+      <td>False</td>
+    </tr>
+<tr>
+<th>54053</th>
+      <td>6000459</td>
+      <td>gate_40</td>
+      <td>5</td>
+      <td>True</td>
+      <td>False</td>
+    </tr>
+<tr>
+<th>19374</th>
+      <td>2155050</td>
+      <td>gate_40</td>
+      <td>14</td>
+      <td>False</td>
+      <td>False</td>
+    </tr>
+<tr>
+<th>78212</th>
+      <td>8658701</td>
+      <td>gate_30</td>
+      <td>0</td>
+      <td>False</td>
+      <td>False</td>
+    </tr>
+</tbody>
+</table>
+</div>
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>we can actually fit a linear model by treating <code>retention_7</code> as independent variable and the rest as dependent variables (except <code>userid</code>). Given this situation, we can fit a probit or logit model. It is actually quite common, especially in econometrics, to employ this method to compare changes between groups in doing randomized control trial or observational studies. Later, we will see whether the fitted coefficient of <code>version</code> is statistically significant and has positive value.</p>
+<p>Firstly, we one-hot encode these categorical covariates before we proceed with the analysis.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [20]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="kn">from</span> <span class="nn">sklearn.preprocessing</span> <span class="kn">import</span> <span class="n">LabelEncoder</span>
+<span class="kn">import</span> <span class="nn">statsmodels.api</span> <span class="k">as</span> <span class="nn">sm</span>
+
+<span class="n">le</span> <span class="o">=</span> <span class="n">LabelEncoder</span><span class="p">()</span>
+<span class="n">categorical</span> <span class="o">=</span> <span class="p">[</span><span class="s1">'version'</span><span class="p">,</span> <span class="s1">'retention_1'</span><span class="p">,</span> <span class="s1">'retention_7'</span><span class="p">]</span>
+<span class="n">df_prepro</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+<span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">categorical</span><span class="p">:</span>
+    <span class="n">df_prepro</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="n">le</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">df_prepro</span><span class="p">[</span><span class="n">col</span><span class="p">])</span>
+<span class="n">df_prepro</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>
+
+<span class="n">y</span> <span class="o">=</span> <span class="n">df_prepro</span><span class="p">[</span><span class="s1">'retention_7'</span><span class="p">]</span>
+<span class="n">X</span> <span class="o">=</span> <span class="n">df_prepro</span><span class="o">.</span><span class="n">drop</span><span class="p">([</span><span class="s1">'retention_7'</span><span class="p">,</span><span class="s1">'userid'</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">X</span> <span class="o">=</span> <span class="n">sm</span><span class="o">.</span><span class="n">add_constant</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h4 id="a.-Probit-model">a. Probit model<a class="anchor-link" href="posts/ab-testing-primer/#a.-Probit-model">¶</a>
+</h4>
+<p>Probit model is one of the generalised linear model where the response variable is binary and the estimated coefficient is found through maximum-likelihood estimation procedure. It has <strong>probit link function</strong> that "connects" the linear combination of dependent variables which expressed as</p>
+$$p(y=1|X) = \Phi\left(\beta^T X\right)$$<p>where notation $\Phi$ denotes the CDF of standard normal distribution. Following we utilize the statsmodels library to fit the model, where firstly we fit the <code>version</code> as our sole covariate.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [21]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">probit_mod</span> <span class="o">=</span> <span class="n">sm</span><span class="o">.</span><span class="n">Probit</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">X</span><span class="p">[[</span><span class="s1">'const'</span><span class="p">,</span> <span class="s1">'version'</span><span class="p">]])</span>
+<span class="n">probit_res</span> <span class="o">=</span> <span class="n">probit_mod</span><span class="o">.</span><span class="n">fit</span><span class="p">()</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="n">probit_res</span><span class="o">.</span><span class="n">summary</span><span class="p">())</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+    <div class="prompt"></div>
+
+
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>Optimization terminated successfully.
+         Current function value: 0.480411
+         Iterations 5
+                          Probit Regression Results                           
+==============================================================================
+Dep. Variable:            retention_7   No. Observations:                90189
+Model:                         Probit   Df Residuals:                    90187
+Method:                           MLE   Df Model:                            1
+Date:                Mon, 13 Jan 2020   Pseudo R-squ.:               0.0001155
+Time:                        12:42:59   Log-Likelihood:                -43328.
+converged:                       True   LL-Null:                       -43333.
+                                        LLR p-value:                  0.001555
+==============================================================================
+                 coef    std err          z      P&gt;|z|      [0.025      0.975]
+------------------------------------------------------------------------------
+const         -0.8772      0.007   -128.313      0.000      -0.891      -0.864
+version       -0.0306      0.010     -3.164      0.002      -0.050      -0.012
+==============================================================================
+</pre>
+</div>
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>The fitted coefficient value for <code>version</code> is $\beta_{version}=-0.0306$. This negative sign indicates that a change of gate placement to level 40, will decrease the probability a player to show up after 7 days installing the game (since we have mapped 0 as <code>gate_30</code> and 1 as <code>gate_40</code>). More specifically, we can estimate the marginal effect of having the gate changed to level 40, given the player currently prompted the gate at level 30. By the chain rule, we obtain</p>
+$$\begin{aligned}
+p(y=1|X) &amp;= \Phi \left(\beta_{const}+\beta_{version} \text{version}\right) \\
+\frac{dp}{d\text{version}} &amp;= \phi \left(\beta_{const}+\beta_{version} \text{version}\right) \times \beta_{version} \\
+&amp;= \phi \left(-0.8772-0.0306 \times 0\right)(-0.306) \\
+&amp;= 0.2715 \times -0.306 \\
+&amp;= -0.0831
+\end{aligned}$$<p>where $\phi$ is the PDF of standard normal distribution. <strong>A change of gate to level 40 is estimated to give a decrease of probability showing up on 7 days later by 0.0831</strong>. This is inline with the difference of retention rate between the <code>gate_30</code> and <code>gate_40</code>.</p>
+<p>Also, Wald's hypothesis test can be performed to test whether the fitted coefficient on <code>version</code> is significantly different from zero. Wald's principle states that the following statistic asymptotically goes to standard normal distribution</p>
+$$\frac{\hat{\beta}-\beta_0}{\hat{\text{SE}}(\hat{\beta})} \sim \text{N}(0,1)$$<p>we test the coefficient and the p-value it has is (which actually already written in the table)</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [22]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="mi">2</span> <span class="o">*</span> <span class="n">stats</span><span class="o">.</span><span class="n">norm</span><span class="o">.</span><span class="n">cdf</span><span class="p">(</span><span class="n">probit_res</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">loc</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="n">probit_res</span><span class="o">.</span><span class="n">bse</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+    <div class="prompt output_prompt">Out[22]:</div>
+
+
+
+
+<div class="output_text output_subarea output_execute_result">
+<pre>0.0015548803510652839</pre>
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Altogether, we can safely assume <strong>the effect of moving the gate to level 40 will decrease the retention rate and it is statistically significant</strong> since the p-value from Wald's statistic is considerably small (less than 5% significant level).</p>
+<p>We can however make further model specification by adding other available covariates to the fitted model; i.e. <code>sum_gamerounds</code> and <code>retention_1</code>. But again in determining the marginal effect on <code>version</code>, predetermined or arbitrary values of <code>sum_gamerounds</code> and <code>retention_1</code> are needed to be plugged-in to calculate the marginal effect.</p>
+<h4 id="b.-Logit-model">b. Logit model<a class="anchor-link" href="posts/ab-testing-primer/#b.-Logit-model">¶</a>
+</h4>
+<p>Similar to probit model, logit model or logistic regression model gives output that only takes two values. The linear combination of covariates is "connected" through a <strong>logit link function</strong> as follows</p>
+$$ \text{log}\frac{p(y=1|X)}{1-p(y=1|X)} = \beta^TX $$<p>The term on the left hand side is referred as <strong>log-odds</strong>. We can also reparaphrase the expression in terms of probability</p>
+$$p(y=1|X) = \frac{1}{1+\text{exp}{(-\beta^TX)}}$$
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In [23]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">logit_mod</span> <span class="o">=</span> <span class="n">sm</span><span class="o">.</span><span class="n">Logit</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">X</span><span class="p">[[</span><span class="s1">'const'</span><span class="p">,</span> <span class="s1">'version'</span><span class="p">]])</span>
+<span class="n">logit_res</span> <span class="o">=</span> <span class="n">logit_mod</span><span class="o">.</span><span class="n">fit</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">logit_res</span><span class="o">.</span><span class="n">summary</span><span class="p">())</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+    <div class="prompt"></div>
+
+
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>Optimization terminated successfully.
+         Current function value: 0.480411
+         Iterations 5
+                           Logit Regression Results                           
+==============================================================================
+Dep. Variable:            retention_7   No. Observations:                90189
+Model:                          Logit   Df Residuals:                    90187
+Method:                           MLE   Df Model:                            1
+Date:                Mon, 13 Jan 2020   Pseudo R-squ.:               0.0001155
+Time:                        12:42:59   Log-Likelihood:                -43328.
+converged:                       True   LL-Null:                       -43333.
+                                        LLR p-value:                  0.001555
+==============================================================================
+                 coef    std err          z      P&gt;|z|      [0.025      0.975]
+------------------------------------------------------------------------------
+const         -1.4487      0.012   -120.207      0.000      -1.472      -1.425
+version       -0.0542      0.017     -3.164      0.002      -0.088      -0.021
+==============================================================================
+</pre>
+</div>
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p><strong>The fitted coefficient of <code>version</code> is again has negative sign and significant.</strong> To compute the marginal effect, we can easily play around with the log-odds equation above and taking the odds ratio.</p>
+$$\begin{aligned}
+\frac{p(y=1|X)}{1-p(y=1|X)} &amp;= \text{exp}(-1.4487-0.0542 \text{version}) \\
+\frac{odds_{gate30}}{odds_{gate40}} &amp;= \frac{\text{exp}(-1.4487)}{\text{exp}(-1.503)} \\
+odds_{gate40} &amp;= 0.947 odds_{gate30}
+\end{aligned}$$<p>associated with moving the gate to level 40 is an estimated decrease of the odds a player will sign-in 7 days after installation of $100\%-94.7\%=5.3\%$. Or more intuitively, in terms of probability</p>
+$$\begin{aligned}
+p(y=1|X) &amp;= \frac{1}{1+\text{exp}{(-\beta^TX)}} \\
+p(y=1|X=0) &amp;= \frac{1}{1+\text{exp}(1.4487)} = 0.1902 \\
+p(y=1|X=1) &amp;= \frac{1}{1+\text{exp}(1.503)} = 0.1819 \\
+\end{aligned}$$
+</div>
+</div>
+</div>
+</div>
+    </div>
+    </article>
+</div>
+
+
+
+        
+
+
+
+        
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS-MML_HTMLorMML" integrity="sha384-3lJUsx1TJHt7BA4udB5KPnDrlkO8T6J6v/op7ui0BbCjvZ9WqV4Xm6DTP6kQ/iBH" crossorigin="anonymous"></script><script type="text/x-mathjax-config">
+MathJax.Hub.Config({
+    tex2jax: {
+        inlineMath: [ ['$','$'], ["\\(","\\)"] ],
+        displayMath: [ ['$$','$$'], ["\\[","\\]"] ],
+        processEscapes: true
+    },
+    displayAlign: 'center', // Change this to 'left' if you want left-aligned equations.
+    "HTML-CSS": {
+        styles: {'.MathJax_Display': {"margin": 0}}
+    }
+});
+</script>
+</div>
+        <!--End of body content-->
+
+        <footer id="footer">
+            Contents © 2020         <a href="mailto:n.tesla@example.com">Eddo Putradipura</a> - Powered by         <a href="https://getnikola.com" rel="nofollow">Nikola</a>         
+            
+        </footer>
+</div>
+</div>
+
+
+            <script src="assets/js/all-nocdn.js"></script><!-- fancy dates --><script>
+    moment.locale("en");
+    fancydates(0, "YYYY-MM-DD HH:mm");
+    </script><!-- end fancy dates --><script>
+    baguetteBox.run('div#content', {
+        ignoreClass: 'islink',
+        captions: function(element) {
+            return element.getElementsByTagName('img')[0].alt;
+    }});
+    </script>
+</body>
+</html>
